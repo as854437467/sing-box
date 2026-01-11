@@ -1,0 +1,69 @@
+name: Build libbox (minimal)
+
+on:
+  workflow_dispatch:
+    inputs:
+      libbox_tag:
+        description: "sing-box tag"
+        required: true
+        default: "v1.12.15"
+      gomobile_version:
+        description: "gomobile/gobind version"
+        required: true
+        default: "v0.1.8"
+
+jobs:
+  build-libbox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sing-box
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box
+          ref: ${{ github.event.inputs.libbox_tag || 'v1.12.15' }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
+
+      - name: Setup Android NDK
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r28
+          local-cache: true
+
+      - name: Setup OpenJDK 17
+        run: sudo apt-get update && sudo apt-get install -y openjdk-17-jdk-headless
+
+      - name: Patch libbox build tags
+        run: |
+          set -euo pipefail
+          sed -i "s/sharedTags = append(sharedTags, \"with_gvisor\", \"with_quic\", \"with_wireguard\", \"with_utls\", \"with_clash_api\", \"with_conntrack\")/sharedTags = append(sharedTags, \"with_quic\", \"with_utls\")/" cmd/internal/build_libbox/main.go
+          sed -i "s/memcTags = append(memcTags, \"with_tailscale\")/memcTags = append(memcTags)/" cmd/internal/build_libbox/main.go
+
+      - name: Install gomobile/gobind
+        run: |
+          set -euo pipefail
+          go install github.com/sagernet/gomobile/cmd/gomobile@${{ github.event.inputs.gomobile_version || 'v0.1.8' }}
+          go install github.com/sagernet/gomobile/cmd/gobind@${{ github.event.inputs.gomobile_version || 'v0.1.8' }}
+
+      - name: Build libbox.aar
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          CGO_ENABLED: 1
+        run: |
+          set -euo pipefail
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          go run ./cmd/internal/build_libbox -target android
+          ls -lh libbox.aar
+
+      - name: Upload libbox.aar
+        uses: actions/upload-artifact@v4
+        with:
+          name: libbox-android-${{ github.event.inputs.libbox_tag || 'v1.12.15' }}-minimal
+          path: libbox.aar
