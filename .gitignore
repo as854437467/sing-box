@@ -9,6 +9,7 @@
 /sing-box
 /sing-box.exe
 /build/
+Libbox.nupkg
 /*.jar
 /*.aar
 /*.xcframework/
