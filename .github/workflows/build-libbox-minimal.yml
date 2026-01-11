@@ -42,7 +42,7 @@ jobs:
       - name: Patch libbox build tags
         run: |
           set -euo pipefail
-          sed -i "s/sharedTags = append(sharedTags, \"with_gvisor\", \"with_quic\", \"with_wireguard\", \"with_utls\", \"with_clash_api\", \"with_conntrack\")/sharedTags = append(sharedTags, \"with_quic\", \"with_utls\")/" cmd/internal/build_libbox/main.go
+          sed -i "s/sharedTags = append(sharedTags, \"with_gvisor\", \"with_quic\", \"with_wireguard\", \"with_utls\", \"with_clash_api\", \"with_conntrack\")/sharedTags = append(sharedTags, \"with_quic\", \"with_utls\", \"with_clash_api\")/" cmd/internal/build_libbox/main.go
           sed -i "s/memcTags = append(memcTags, \"with_tailscale\")/memcTags = append(memcTags)/" cmd/internal/build_libbox/main.go
 
       - name: Install gomobile/gobind
