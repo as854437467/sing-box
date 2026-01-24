@@ -59,29 +59,28 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$PATH:$(go env GOPATH)/bin"
-          
-          # 只编 arm64-v8a（gomobile 支持这种 target 写法）
-          go run ./cmd/internal/build_libbox -target android/arm64
-          
-          echo "---- locate generated AAR(s) ----"
-          find . -maxdepth 5 -name '*.aar' -print -ls
-          
-          # 选一个最像“主库”的 AAR：优先排除 memc 之类的变体（有就排除，没有也不影响）
-          AAR="$(find . -maxdepth 5 -name '*.aar' -print | grep -vE 'memc' | head -n 1)"
-          if [ -z "${AAR:-}" ]; then
-            echo "ERROR: no AAR produced"
-            exit 1
-          fi
-          
-          cp "$AAR" ./libbox.aar
+
+          # 先按原方式生成“完整 AAR”（通常包含多 ABI）
+          go run ./cmd/internal/build_libbox -target android
           ls -lh libbox.aar
-          
+
+          # 再把 AAR 里非 arm64-v8a 的 jni 目录删掉，重新打包
+          rm -rf _aar && mkdir -p _aar
+          unzip -q libbox.aar -d _aar
+
+          rm -rf _aar/jni/armeabi-v7a _aar/jni/x86 _aar/jni/x86_64
+
+          (cd _aar && zip -qr ../libbox-arm64.aar .)
+          mv -f libbox-arm64.aar libbox.aar
+
           echo "---- sanity check: only arm64-v8a ----"
           unzip -l libbox.aar | awk '$4 ~ /^jni\// {print}'
           if unzip -l libbox.aar | grep -E 'jni/(armeabi-v7a|x86|x86_64)/' -q; then
             echo "ERROR: AAR still contains non-arm64 ABI libs"
             exit 1
           fi
+
+          ls -lh libbox.aar
 
 
 
