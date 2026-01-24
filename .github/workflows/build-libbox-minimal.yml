@@ -51,7 +51,7 @@ jobs:
           go install github.com/sagernet/gomobile/cmd/gomobile@${{ github.event.inputs.gomobile_version || 'v0.1.8' }}
           go install github.com/sagernet/gomobile/cmd/gobind@${{ github.event.inputs.gomobile_version || 'v0.1.8' }}
 
-      - name: Build libbox.aar
+      - name: Build libbox.aar (arm64-v8a only)
         env:
           JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -59,8 +59,16 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$PATH:$(go env GOPATH)/bin"
-          go run ./cmd/internal/build_libbox -target android
+          go run ./cmd/internal/build_libbox -target android/arm64
           ls -lh libbox.aar
+
+          echo "---- sanity check: only arm64-v8a ----"
+          unzip -l libbox.aar | awk '$4 ~ /^jni\// {print}'
+          if unzip -l libbox.aar | grep -E 'jni/(armeabi-v7a|x86|x86_64)/' -q; then
+            echo "ERROR: AAR still contains non-arm64 ABI libs"
+            exit 1
+          fi
+
 
       - name: Upload libbox.aar
         uses: actions/upload-artifact@v4
